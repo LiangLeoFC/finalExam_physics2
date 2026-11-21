@@ -6,6 +6,8 @@
 import { JSDOM, VirtualConsole } from "jsdom";
 
 const URL_BASE = process.argv[2] || "http://127.0.0.1:8642/";
+// 测试用密码：CI 会生成自己的假密文并注入这个环境变量；本地默认用仓库里的测试密文密码
+const AI_TEST_PWD = process.env.SITE_AI_PASSWORD || "physics2026";
 const problems = [];
 const notes = [];
 
@@ -99,7 +101,7 @@ if (hasSubtle) {
   if (st !== "未解锁") problems.push("错误密码竟然解锁了 AI！");
 
   // 8b. 正确密码（当前 ai-config.js 是测试密文，密码 physics2026）应解锁
-  const okRight = await window.aiUnlock("physics2026", true);
+  const okRight = await window.aiUnlock(AI_TEST_PWD, true);
   st = $("#aiLockState").textContent;
   notes.push(`正确密码后状态: ${st}（aiUnlock 返回 ${okRight}）`);
   if (!okRight || st !== "已解锁") problems.push("正确密码没能解锁 AI");
@@ -125,7 +127,7 @@ if (hasSubtle) {
   if (!/密码不对/.test(hint.textContent)) problems.push("输错密码没有给出提示");
 
   // 输对密码 -> 条隐藏
-  $("#aiLockPwd").value = "physics2026";
+  $("#aiLockPwd").value = AI_TEST_PWD;
   window.aiUnlockQuick();
   await new Promise((r) => setTimeout(r, 200));
   notes.push(`输对密码后：解锁条可见 ${bar.classList.contains("show")}，状态 ${$("#aiLockState").textContent}`);
@@ -171,7 +173,7 @@ try {
       return Promise.resolve(new Response(body, { status: 200, headers: { "Content-Type": "text/event-stream" } }));
     },
   });
-  await window.aiUnlock("physics2026", true);
+  await window.aiUnlock(AI_TEST_PWD, true);
   await window.aiSend("周期由什么决定？");
   await new Promise((r) => setTimeout(r, 250));   // 等收尾那次公式渲染
 
@@ -215,7 +217,7 @@ try {
       return fetch(url, rest);
     },
   });
-  await window.aiUnlock("physics2026", true);       // 解出 ai-config.js 里的假 Key
+  await window.aiUnlock(AI_TEST_PWD, true);       // 解出 ai-config.js 里的假 Key
   await window.aiSend("只回复两个字：收到");
   const bubbles = $$(".ai-msg.ai .ai-bubble");
   const last = bubbles.length ? bubbles[bubbles.length - 1].textContent : "";
@@ -365,5 +367,6 @@ if (problems.length) {
 }
 console.log("\n[OK] 页面加载无报错，公式渲染正常，AI 默认锁定，章节筛选正确");
 dom.window.close();
+
 
 

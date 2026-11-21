@@ -1,0 +1,14 @@
+{
+  "name": "finalexam-physics2",
+  "version": "1.0.0",
+  "private": true,
+  "description": "大学物理(Ⅱ) 刷题站：静态页面 + KaTeX + DeepSeek 密码解锁",
+  "scripts": {
+    "check": "node tools/check_site.mjs",
+    "test": "node tools/test_site.mjs http://127.0.0.1:8642/",
+    "serve": "python3 -m http.server 8642 --bind 127.0.0.1 --directory ."
+  },
+  "devDependencies": {
+    "jsdom": "^27.0.0"
+  }
+}

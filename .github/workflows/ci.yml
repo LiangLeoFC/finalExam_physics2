@@ -1,0 +1,53 @@
+# 每次 push / PR 自动跑站点自检
+#
+# 为什么要有：题库、样式、AI 代码随时会被改，靠人工跑脚本容易忘。
+# 这里在 CI 里重新生成一份「假的」AI 密文（不碰仓库里真实的 js/ai-config.js），
+# 于是完整的浏览器级测试（含密码解锁、SSE 流解析、401 处理）都能在 CI 里跑，
+# 又不需要把真实 Key 或真实密码写进仓库。
+name: site-check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 安装 jsdom
+        run: npm install --no-audit --no-fund
+
+      - name: 静态自检（资源 / id / 数据 / AI 配置）
+        run: node tools/check_site.mjs
+
+      - name: 生成 CI 专用假密文
+        run: node tools/make_ai_config.mjs --key sk-CI-DUMMY-KEY --password ci-test-password
+
+      - name: 启动本地静态服务
+        run: |
+          python3 -m http.server 8642 --bind 127.0.0.1 --directory . &
+          sleep 1
+          curl -sf -o /dev/null http://127.0.0.1:8642/ || (echo "服务没起来" && exit 1)
+
+      - name: 浏览器级自检（加载 / 公式 / 密码门 / AI 请求 / 160 题判分 / 交互）
+        env:
+          SITE_AI_PASSWORD: ci-test-password
+        run: node tools/test_site.mjs http://127.0.0.1:8642/
+
+      - name: 失败时保留现场
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-test-log
+          path: |
+            index.html
+            js/ai-config.js
+          if-no-files-found: ignore
