@@ -298,6 +298,39 @@ const favProg = $("#navProgress").textContent.replace(/\s+/g, " ");
 notes.push(`收藏夹进度: ${favProg}`);
 if (!/^1 \//.test(favProg)) problems.push(`收藏夹应有 1 题，实际 ${favProg}`);
 
+// 13. 判分正确性全量回归：160 题逐题喂「标准答案」，必须判为正确
+//     这能抓出题库数据与判分逻辑之间的任何不一致（答案格式、对/错字面量、多选拼接等）
+//     先清掉「已作答」锁，否则第 12 节故意答错的那题会被锁住、无法重新判分
+window.eval(`Object.keys(state.positions)
+  .filter(k => k.startsWith("_ans_") || k.startsWith("_answered_"))
+  .forEach(k => delete state.positions[k])`);
+const allQ = JSON.parse(window.eval(
+  "JSON.stringify(QUIZ_BANKS.flatMap(b=>b.questions.map(q=>({k:q.k,t:q.t,a:q.a}))))"));
+let okCnt = 0;
+const badGrade = [], skippedQ = [];
+for (const q of allQ) {
+  window.jumpTo(q.k);
+  await new Promise((r) => setTimeout(r, 0));
+  if (q.a == null || q.t === "fill") { skippedQ.push(q.k); continue; }
+  if (q.t === "multiple") {
+    for (const letter of String(q.a)) window.onOptClick(q.k, letter);
+    window.confirmMulti(q.k);
+  } else {
+    window.onOptClick(q.k, q.a);
+  }
+  await new Promise((r) => setTimeout(r, 0));
+  const fb2 = $(".feedback") ? $(".feedback").textContent.replace(/\s+/g, " ") : "";
+  if (/正确/.test(fb2) && !/错误/.test(fb2)) okCnt++;
+  else badGrade.push(`${q.k}(${q.t} 答案=${q.a}) → ${fb2.slice(0, 46)}`);
+}
+notes.push(`判分全量回归：${okCnt} 题判对，${badGrade.length} 题判错，${skippedQ.length} 题跳过`);
+if (badGrade.length) {
+  problems.push(`有 ${badGrade.length} 题喂标准答案却判错`);
+  badGrade.slice(0, 5).forEach((x) => notes.push("  ✗ " + x));
+}
+if (okCnt + badGrade.length !== 160) problems.push(`判分覆盖 ${okCnt + badGrade.length} 题，应为 160`);
+
+
 console.log("── 浏览器级自检（jsdom）──");
 notes.forEach((n) => console.log("  · " + n));
 if (problems.length) {
