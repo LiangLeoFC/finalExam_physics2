@@ -166,6 +166,68 @@ if (rendered !== 160) problems.push(`应遍历 160 题，实际 ${rendered}`);
 if (empty) problems.push(`有 ${empty} 道题既无文字也无图片`);
 if (threw) problems.push(`有 ${threw} 道题渲染抛异常`);
 
+// 12. 交互回归：答题判分 / 错题本 / 收藏 / 乱序 / 错题模式
+//     注意 restartCurrent() 是弹确认框后才会重置，必须点确认
+window.switchMode("single");
+window.setChapter("all");
+$("#bankSelect").value = "0";
+window.onBankChange();
+window.restartCurrent();
+$("#modalConfirmBtn").click();
+await new Promise((r) => setTimeout(r, 150));
+
+const bankName = $(".q-bankname") ? $(".q-bankname").textContent.trim() : "";
+const curQ = JSON.parse(window.eval(
+  "JSON.stringify({k: QUIZ_BANKS[0].questions[0].k, a: QUIZ_BANKS[0].questions[0].a, t: QUIZ_BANKS[0].questions[0].t})"));
+notes.push(`当前题库: ${bankName} / 首题 ${curQ.k}(${curQ.t}) 标准答案 ${curQ.a}`);
+if (!/2\.10/.test(bankName)) problems.push(`没有回到 2.10 测验，实际「${bankName}」`);
+const shownStem = $(".q-stem") ? $(".q-stem").textContent.slice(0, 16) : "";
+if (!shownStem.startsWith("测得简谐振子")) problems.push(`首题不对，显示的是「${shownStem}」`);
+
+const firstK = curQ.k;
+const wrongPick = curQ.a === "A" ? "B" : "A";   // 故意选错
+window.onOptClick(firstK, wrongPick);
+await new Promise((r) => setTimeout(r, 120));
+
+const fb = $(".feedback");
+const fbText = fb ? fb.textContent : "";
+notes.push(`答错后反馈: ${fbText.replace(/\s+/g, " ").slice(0, 50)}`);
+if (!/✗|错/.test(fbText)) problems.push("答错后没有出现判错反馈");
+
+const wrongCnt = parseInt($("#statWrongCount").textContent, 10);
+const totalCnt = parseInt($("#statTotal").textContent, 10);
+notes.push(`统计: 答题总数 ${totalCnt}，错题本 ${wrongCnt}`);
+if (!(totalCnt >= 1)) problems.push("答题总数没有增加");
+if (!(wrongCnt >= 1)) problems.push("答错的题没有进错题本");
+
+// 收藏
+window.toggleFav(firstK);
+await new Promise((r) => setTimeout(r, 60));
+const favBtn = $(".q-fav");
+notes.push(`收藏按钮状态: ${favBtn ? favBtn.className : "(无)"}`);
+if (!favBtn || !favBtn.classList.contains("on")) problems.push("收藏后按钮没有变成已收藏");
+
+// 乱序模式（全部 160 题）
+window.switchMode("all");
+await new Promise((r) => setTimeout(r, 100));
+const progress = $("#navProgress").textContent.replace(/\s+/g, " ");
+notes.push(`乱序模式进度: ${progress}`);
+if (!/\/ 160/.test(progress)) problems.push(`乱序模式题数不对: ${progress}`);
+
+// 错题模式应能定位到刚答错的那题
+window.switchMode("wrong");
+await new Promise((r) => setTimeout(r, 100));
+const wrongStem = $(".q-stem") ? $(".q-stem").textContent.slice(0, 24) : "";
+notes.push(`错题模式首题: ${wrongStem}`);
+if (!wrongStem) problems.push("错题模式里没有题");
+
+// 收藏夹模式
+window.switchMode("fav");
+await new Promise((r) => setTimeout(r, 100));
+const favProg = $("#navProgress").textContent.replace(/\s+/g, " ");
+notes.push(`收藏夹进度: ${favProg}`);
+if (!/^1 \//.test(favProg)) problems.push(`收藏夹应有 1 题，实际 ${favProg}`);
+
 console.log("── 浏览器级自检（jsdom）──");
 notes.forEach((n) => console.log("  · " + n));
 if (problems.length) {
