@@ -991,6 +991,7 @@ function aiCurrentContext(){
   let t = `【当前题目】${bank.section} ${bank.name} 第${q.k.split("#")[1]}题（${TYPE_LABEL[q.t]}）\n题干：${aiStripMd(q.s, imgs)}`;
   if(q.o) t += "\n选项：" + Object.entries(q.o).map(([k,v])=>`${k}. ${aiStripMd(v, imgs)}`).join("；");
   t += "\n题库标注答案：" + (q.a==null ? "未知" : (Array.isArray(q.a) ? q.a.join("；") : q.a));
+  if(q.an) t += "\n题库官方解析：" + aiStripMd(q.an, null);
   if(q.note) t += "\n题库备注：" + q.note;
   return {text:t, images:imgs};
 }
@@ -1001,7 +1002,9 @@ function aiRetrieve(query){
   for(let i=0;i<q.length-1;i++){ const g=q.slice(i,i+2); if(!/\s/.test(g)) grams.add(g); }
   const scored = [];
   QUIZ_BANKS.forEach(b=>b.questions.forEach(qq=>{
-    const text = (qq.s+" "+Object.values(qq.o||{}).join(" ")+" "+(qq.note||"")).replace(/!\[\]\([^)]+\)/g," ").toLowerCase();
+    // 检索范围包含题干、选项、备注和官方解析——解析里往往有老师给的关键结论
+    const text = (qq.s+" "+Object.values(qq.o||{}).join(" ")+" "+(qq.note||"")+" "+(qq.an||""))
+      .replace(/!\[\]\([^)]+\)/g," ").toLowerCase();
     let s = 0;
     grams.forEach(g=>{ if(text.includes(g)) s += 2; });
     if(s>4) scored.push({s, b, q:qq});
@@ -1015,7 +1018,7 @@ const AI_SYSTEM = [
   "课程范围：第9章 振动、第10章 波动、气体动理论、量子物理、狭义相对论、热力学，以及五个物理实验（偏振光、光栅、光电效应测普朗克常数、塞曼效应、核磁共振）。",
   "回答规则：",
   "1. 全程使用中文；先给结论，再讲原理，最后点出考点；照顾基础薄弱的学生，必要时举例。",
-  "2. 上下文里会提供「当前题目」「题库相关资料」，优先依据它们回答；引用题库时说明出处（章节题号）。",
+  "2. 上下文里会提供「当前题目」「题库相关资料」（含老师给的官方解析），优先依据它们回答；引用题库时说明出处（章节题号）；官方解析与你自己的推理想法冲突时，以解析为准并说明分歧。",
   "3. 公式一律用行内 LaTeX 书写，用 $...$ 包裹（如 $\\omega=\\sqrt{k/m}$、$\\Delta E=h\\nu$）；独立成行的公式用 $$...$$。站点会用 KaTeX 渲染，不要用图片或纯文字代替公式。",
   "4. 学生划选了一段内容提问时，重点解释那段内容。",
   "5. 若题目正文里出现 [图] 占位（原题配图是图片，你看不到），要明确说明「这题有配图我看不到」，并基于文字条件给出思路，不要编造图里的数据。",
@@ -1091,7 +1094,8 @@ async function aiSend(preset){
       const qi = h.q;
       const stem = aiStripMd(qi.s, null).slice(0, 120);
       const ans = qi.a==null ? "未知" : (Array.isArray(qi.a) ? qi.a.join("；") : qi.a);
-      return `${i+1}. 【${h.b.section} ${h.b.name}】${stem} … 答案：${ans}${qi.note?(" 备注："+qi.note):""}`;
+      const an = qi.an ? " 官方解析：" + aiStripMd(qi.an, null).slice(0, 160) : "";
+      return `${i+1}. 【${h.b.section} ${h.b.name}】${stem} … 答案：${ans}${an}${qi.note?(" 备注："+qi.note):""}`;
     });
     parts.push("【题库相关资料】\n" + lines.join("\n"));
   }

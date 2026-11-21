@@ -10,7 +10,13 @@ const problems = [];
 const notes = [];
 
 const vc = new VirtualConsole();
-vc.on("jsdomError", (e) => problems.push("jsdomError: " + (e && e.message ? e.message : e)));
+let capturedReq = null;
+vc.on("jsdomError", (e) => {
+  const msg = (e && e.message) || String(e);
+  // jsdom 没实现布局相关 API（scrollTo/scrollIntoView 等），不是站点的问题
+  if (/Not implemented/.test(msg)) return;
+  problems.push("jsdomError: " + msg);
+});
 vc.on("error", (...a) => problems.push("console.error: " + a.join(" ")));
 
 const dom = await JSDOM.fromURL(URL_BASE, {
@@ -26,7 +32,7 @@ await new Promise((res) => {
   else window.addEventListener("load", res);
 });
 // 等 MutationObserver 的 requestAnimationFrame 走完一轮公式渲染
-await new Promise((r) => setTimeout(r, 800));
+window.scrollTo = () => {}; window.scrollIntoView = () => {};await new Promise((r) => setTimeout(r, 800));
 
 const $ = (sel) => window.document.querySelector(sel);
 const $$ = (sel) => [...window.document.querySelectorAll(sel)];
@@ -108,6 +114,18 @@ if (hasSubtle) {
 }
 
 // 9. 假 SSE 流：验证流式解析 + AI 回复里的 $LaTeX$ 能被 KaTeX 渲染（不需要真 Key）
+//    先把光标定位到一道「带官方解析」的题（2.10#1），否则验证不了解析是否进了上下文
+window.switchMode("single");
+window.setChapter("all");
+$("#bankSelect").value = "0";
+window.onBankChange();
+window.jumpTo("2.10#1");
+await new Promise((r) => setTimeout(r, 120));
+const ctxItem = window.cur();
+const ctxQ = ctxItem ? ctxItem.q : null;
+notes.push(`上下文题: ${ctxQ ? ctxQ.k : "?"}，带官方解析: ${!!(ctxQ && ctxQ.an)}`);
+if (!ctxQ || !ctxQ.an) problems.push("测试前置条件不成立：当前题没有官方解析");
+
 try {
   const enc = new TextEncoder();
   const chunks = [
@@ -123,11 +141,30 @@ try {
   });
   Object.defineProperty(window, "fetch", {
     configurable: true,
-    value: () => Promise.resolve(new Response(body, { status: 200, headers: { "Content-Type": "text/event-stream" } })),
+    value: (url, init = {}) => {
+      capturedReq = { url, body: JSON.parse(init.body), auth: (init.headers || {}).Authorization };
+      return Promise.resolve(new Response(body, { status: 200, headers: { "Content-Type": "text/event-stream" } }));
+    },
   });
   await window.aiUnlock("physics2026", true);
   await window.aiSend("周期由什么决定？");
   await new Promise((r) => setTimeout(r, 250));   // 等收尾那次公式渲染
+
+  // 请求结构校验：endpoint / 鉴权头 / 模型 / system 提示词 / 官方解析是否进上下文
+  if (capturedReq) {
+    notes.push(`请求: POST ${capturedReq.url}  model=${capturedReq.body.model}  stream=${capturedReq.body.stream}`);
+    if (!/api\.deepseek\.com\/chat\/completions$/.test(capturedReq.url)) problems.push("endpoint 不对");
+    if (!/^Bearer sk-/.test(capturedReq.auth || "")) problems.push("Authorization 头不对");
+    if (capturedReq.body.model !== "deepseek-chat") problems.push("模型名不对");
+    const sys = capturedReq.body.messages[0];
+    if (sys.role !== "system" || !/大学物理/.test(sys.content)) problems.push("system 提示词不对");
+    const userMsg = capturedReq.body.messages[capturedReq.body.messages.length - 1].content;
+    if (!/题库官方解析/.test(userMsg)) problems.push("当前题的官方解析没有被带进上下文");
+    else notes.push("上下文里带上了官方解析 ✓");
+    if (!/根据振子的初始位置/.test(userMsg)) problems.push("解析正文没进去");
+  } else {
+    problems.push("没有捕获到请求");
+  }
   const bubbles = $$(".ai-msg.ai .ai-bubble");
   const last = bubbles.length ? bubbles[bubbles.length - 1] : null;
   const text = last ? last.textContent : "";
@@ -270,3 +307,5 @@ if (problems.length) {
 }
 console.log("\n[OK] 页面加载无报错，公式渲染正常，AI 默认锁定，章节筛选正确");
 dom.window.close();
+
+
