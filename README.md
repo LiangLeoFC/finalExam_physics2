@@ -3,6 +3,13 @@
 从学习通《大学物理(Ⅱ)》抓下来的 13 个测验 / 160 题（官方答案齐全），做成可刷题的静态站。
 移植自电工学站，公式改用 **KaTeX** 本地渲染，AI 助教换成 **DeepSeek + 使用密码解锁**。
 
+**线上地址**：<https://liangleofc.github.io/finalExam_physics2/>
+**仓库**：<https://github.com/LiangLeoFC/finalExam_physics2>
+
+> AI 使用密码**不在仓库里**，单独告知。没有密码也能正常刷题，只是用不了 AI。
+> GitHub Pages 走 https，`crypto.subtle` 可用，解锁正常。
+
+
 ## 本地预览
 
 ```powershell
@@ -60,12 +67,19 @@ node tools\test_ai_config.mjs 你的使用密码      # 验证能解出，应该
 > 安全边界：不知道密码拿不到 Key；但密码一旦分享出去就等于 Key 分享出去。
 > 建议密码 10 位以上；给朋友用的站，定期换 Key 或换密码。
 
-## 部署到 GitHub Pages
+## 部署（已完成）
 
-1. 新建仓库（如 `finalExam_physics2`），把本目录全部内容推上去（`tools/` 可推可留）。
-2. 仓库 Settings → Pages → Source 选 `Deploy from a branch`，分支 `main`、目录 `/ (root)`。
-3. 等 1 分钟左右，访问 `https://<用户名>.github.io/finalExam_physics2/`。
-4. GitHub Pages 默认 https，`crypto.subtle` 可用，AI 解锁正常。
+已用分支 `main` + `/ (root)` 开启 Pages，地址 <https://liangleofc.github.io/finalExam_physics2/>。
+以后更新内容就是普通的 `git push`，Pages 与 CI 都会自动重跑：
+
+```powershell
+git add -A && git commit -m "更新题库" && git push
+```
+
+`main` 上每次 push 会触发 `.github/workflows/ci.yml`：
+在 CI 里**重新生成一份假密文**（不碰仓库里真实 `js/ai-config.js`），
+然后跑静态自检 + 完整浏览器级测试（密码门 / AI 请求 / 160 题判分 / 交互），
+所以既不需要把真 Key 交给 CI，也能保证改动不把站点搞坏。
 
 ## 自检（三层，都可重复跑）
 
