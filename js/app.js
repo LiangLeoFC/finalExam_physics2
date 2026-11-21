@@ -828,14 +828,35 @@ function aiUnlockUI(){
   if(!pwd){ showToast("先输入使用密码"); return; }
   aiUnlock(pwd).then(ok=>{ if(ok && el) el.value = ""; });
 }
+/** 面板顶部那条快捷解锁（不点 ⚙ 也能解锁） */
+function aiUnlockQuick(){
+  const el = document.getElementById("aiLockPwd");
+  const hint = document.getElementById("aiLockHint");
+  const pwd = el ? el.value.trim() : "";
+  if(!pwd){ showToast("先输入使用密码"); return; }
+  aiUnlock(pwd, true).then(ok=>{
+    if(ok){
+      if(el) el.value = "";
+      aiRenderWelcome();
+      showToast("AI 已解锁");
+    }else if(hint){
+      hint.textContent = "密码不对，再试一次";
+      hint.classList.add("err");
+    }
+  });
+}
 function aiLockUI(){ aiLock(); aiRenderWelcome(); }
 function aiRefreshLockUI(){
   const st = document.getElementById("aiLockState");
   const fab = document.getElementById("aiFab");
+  const bar = document.getElementById("aiLockBar");
+  const hint = document.getElementById("aiLockHint");
   const unlocked = aiIsUnlocked();
   if(st) st.textContent = unlocked ? "已解锁" : "未解锁";
   if(st) st.className = unlocked ? "ok" : "";
   if(fab) fab.textContent = unlocked ? "✨ AI 助教" : "🔒 AI 助教";
+  if(bar) bar.classList.toggle("show", !unlocked);
+  if(unlocked && hint){ hint.textContent = "不输密码也能正常刷题，只是用不了 AI"; hint.classList.remove("err"); }
 }
 /** 刷新页面后，同一标签页内免重复输密码（关闭标签页即失效） */
 function aiRestoreSession(){
@@ -1149,6 +1170,10 @@ async function aiSend(preset){
 // 输入框：Enter 发送，Shift+Enter 换行
 document.getElementById("aiInput").addEventListener("keydown", (e)=>{
   if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); aiSend(); }
+});
+// 快捷解锁框：回车即解锁
+document.getElementById("aiLockPwd").addEventListener("keydown", (e)=>{
+  if(e.key==="Enter"){ e.preventDefault(); aiUnlockQuick(); }
 });
 
 /* ═══════════════ 渲染入口 ═══════════════ */

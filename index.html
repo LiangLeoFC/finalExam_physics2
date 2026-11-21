@@ -106,6 +106,15 @@
     <div class="ai-set-tip" id="aiUsageTip"></div>
     <div class="ai-set-tip">不输密码也能正常刷题，只是用不了 AI。AI 的回答可能有错，注意核对教材。</div>
   </div>
+  <!-- 未解锁时的快捷解锁条：不用点 ⚙ 翻设置 -->
+  <div id="aiLockBar" class="ai-lockbar">
+    <div class="ai-lockbar-title">🔒 AI 需要密码解锁</div>
+    <div class="ai-lockbar-row">
+      <input id="aiLockPwd" type="password" placeholder="输入使用密码" autocomplete="off">
+      <button class="btn-primary" onclick="aiUnlockQuick()">解锁</button>
+    </div>
+    <div class="ai-lockbar-tip" id="aiLockHint">不输密码也能正常刷题，只是用不了 AI</div>
+  </div>
   <div id="aiMsgs" class="ai-msgs"></div>
   <div id="aiQuote" class="ai-quote"></div>
   <div class="ai-input-row">

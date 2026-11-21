@@ -109,6 +109,31 @@ if (hasSubtle) {
   st = $("#aiLockState").textContent;
   notes.push(`点锁定后状态: ${st}`);
   if (st !== "未解锁") problems.push("锁定后状态没回到未解锁");
+
+  // 8d. 面板顶部的快捷解锁条
+  const bar = $("#aiLockBar");
+  const hint = $("#aiLockHint");
+  notes.push(`未解锁时解锁条可见: ${bar.classList.contains("show")}`);
+  if (!bar.classList.contains("show")) problems.push("未解锁时顶部解锁条没显示");
+
+  // 输错密码 -> 条还在，提示变红
+  $("#aiLockPwd").value = "wrong-again";
+  window.aiUnlockQuick();
+  await new Promise((r) => setTimeout(r, 120));
+  notes.push(`输错密码后提示: ${hint.textContent}（仍需解锁: ${bar.classList.contains("show")}）`);
+  if (!bar.classList.contains("show")) problems.push("输错密码后解锁条不该消失");
+  if (!/密码不对/.test(hint.textContent)) problems.push("输错密码没有给出提示");
+
+  // 输对密码 -> 条隐藏
+  $("#aiLockPwd").value = "physics2026";
+  window.aiUnlockQuick();
+  await new Promise((r) => setTimeout(r, 200));
+  notes.push(`输对密码后：解锁条可见 ${bar.classList.contains("show")}，状态 ${$("#aiLockState").textContent}`);
+  if (bar.classList.contains("show")) problems.push("解锁后顶部解锁条应隐藏");
+  if ($("#aiLockState").textContent !== "已解锁") problems.push("快捷解锁没生效");
+
+  window.aiLock();
+  if (!bar.classList.contains("show")) problems.push("重新锁定后解锁条应回来");
 } else {
   notes.push("跳过解锁测试（无法注入 WebCrypto）");
 }
