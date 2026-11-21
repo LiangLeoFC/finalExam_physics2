@@ -107,7 +107,40 @@ if (hasSubtle) {
   notes.push("跳过解锁测试（无法注入 WebCrypto）");
 }
 
-// 9. 真打一次 DeepSeek：用密文里的假 Key 必须被打回 401，并且页面给出「Key 已失效」的提示
+// 9. 假 SSE 流：验证流式解析 + AI 回复里的 $LaTeX$ 能被 KaTeX 渲染（不需要真 Key）
+try {
+  const enc = new TextEncoder();
+  const chunks = [
+    `data: ${JSON.stringify({ choices: [{ delta: { content: "结论：周期只由系统决定，" } }] })}\n\n`,
+    `data: ${JSON.stringify({ choices: [{ delta: { content: "即 $T=2\\pi\\sqrt{\\frac{m}{k}}$。" } }] })}\n\n`,
+    "data: [DONE]\n\n",
+  ];
+  const body = new ReadableStream({
+    start(c) {
+      chunks.forEach((x) => c.enqueue(enc.encode(x)));
+      c.close();
+    },
+  });
+  Object.defineProperty(window, "fetch", {
+    configurable: true,
+    value: () => Promise.resolve(new Response(body, { status: 200, headers: { "Content-Type": "text/event-stream" } })),
+  });
+  await window.aiUnlock("physics2026", true);
+  await window.aiSend("周期由什么决定？");
+  await new Promise((r) => setTimeout(r, 250));   // 等收尾那次公式渲染
+  const bubbles = $$(".ai-msg.ai .ai-bubble");
+  const last = bubbles.length ? bubbles[bubbles.length - 1] : null;
+  const text = last ? last.textContent : "";
+  const katexInBubble = last ? last.querySelectorAll(".katex").length : 0;
+  notes.push(`流式回复: ${text.replace(/\s+/g, " ").slice(0, 60)}…  气泡内 KaTeX ${katexInBubble} 个`);
+  if (!/周期只由系统决定/.test(text)) problems.push("SSE 流式回复没有正确拼接");
+  if (!katexInBubble) problems.push("AI 回复里的 $...$ 没有被 KaTeX 渲染");
+} catch (e) {
+  problems.push("流式测试抛异常: " + e.message);
+}
+window.aiLock();
+
+// 10. 真打一次 DeepSeek：用密文里的假 Key 必须被打回 401，并且页面给出「Key 已失效」的提示
 //    （验证 endpoint / 请求头 / SSE 接线的正确性，不需要真 Key）
 //    注意：app.js 里的 aiState 是 const 绑定，不在 window 上，只能通过 aiUnlock 走真实路径拿 Key。
 try {

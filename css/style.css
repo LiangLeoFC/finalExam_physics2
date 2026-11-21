@@ -205,6 +205,10 @@ img.qimg{max-width:100%;vertical-align:middle;border-radius:4px}
 /* KaTeX 行内公式在中文行高里容易顶到上下行，收一点 */
 .q-stem .katex,.opt-text .katex,.feedback .katex,.ai-bubble .katex{font-size:1.04em}
 .katex-display{margin:.5em 0;overflow-x:auto;overflow-y:hidden}
+/* KaTeX 会把同一个公式输出两份：可视 HTML + MathML（给读屏软件）。
+   MathML 那份看不见但能被鼠标选中，导致复制题目时出现「A₁A_1A」这种重复。
+   这里禁止选中 MathML 副本，读屏软件仍然能读到。 */
+.katex .katex-mathml{user-select:none;-webkit-user-select:none}
 /* 题干里的配图（实验装置图、光路图等） */
 .qimg{max-width:100%;height:auto;vertical-align:middle;margin:4px 0}
 .ai-settings input{width:100%;margin-top:8px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:var(--font-sans)}

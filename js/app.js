@@ -88,6 +88,7 @@ const MATH_OPTS = {
   ignoredTags: ["script","noscript","style","textarea","pre","code","option"]
 };
 let mathObserver = null;
+let mathPaused = false;      // 流式输出期间暂停公式渲染（每来一个字都渲染一遍纯属浪费）
 function mathTargets(){
   return ["questionArea","aiMsgs","batchResult"].map(id=>document.getElementById(id)).filter(Boolean);
 }
@@ -101,10 +102,11 @@ function startMath(){
   if(typeof window.renderMathInElement !== "function") return;   // 无 KaTeX 也能跑，只是公式原样显示
   let pending = false;
   mathObserver = new MutationObserver(()=>{
-    if(pending) return;
+    if(pending || mathPaused) return;
     pending = true;
     requestAnimationFrame(()=>{
       pending = false;
+      if(mathPaused) return;
       mathTargets().forEach(renderMathIn);
     });
   });
@@ -1101,6 +1103,7 @@ async function aiSend(preset){
   const bubbleDiv = aiAddMsg("ai", "…");
   const bubble = bubbleDiv.querySelector(".ai-bubble");
   aiState.streaming = true; aiState.abort = new AbortController();
+  mathPaused = true;          // 流式期间别渲染公式，收尾统一渲染
   sendBtn.textContent = "停止";
 
   const messages = [{role:"system", content:AI_SYSTEM}]
@@ -1130,6 +1133,8 @@ async function aiSend(preset){
     }
   }
   bubble.innerHTML = mdLite(acc);
+  mathPaused = false;
+  renderMathIn(document.getElementById("aiMsgs"));   // 收尾时把回复里的 $...$ 渲染掉
   aiState.history.push({role:"user", content:text});
   aiState.history.push({role:"assistant", content:acc});
   if(aiState.history.length>20) aiState.history = aiState.history.slice(-20);
