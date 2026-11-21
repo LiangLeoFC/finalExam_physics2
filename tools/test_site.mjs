@@ -217,12 +217,17 @@ try {
       return fetch(url, rest);
     },
   });
-  await window.aiUnlock(AI_TEST_PWD, true);       // 解出 ai-config.js 里的假 Key
+  await window.aiUnlock(AI_TEST_PWD, true);       // 解出 ai-config.js 里的 Key
   await window.aiSend("只回复两个字：收到");
   const bubbles = $$(".ai-msg.ai .ai-bubble");
   const last = bubbles.length ? bubbles[bubbles.length - 1].textContent : "";
   notes.push(`DeepSeek 返回处理: ${last.replace(/\s+/g, " ").slice(0, 90)}`);
-  if (!/401|Key 已失效/.test(last)) problems.push("假 Key 没有被打回 401，或错误提示没显示出来");
+  // 仓库里是测试密文时应被打回 401；换成真 Key 后应正常拿到回复。两种都算通过。
+  const rejected401 = /401|Key 已失效/.test(last);
+  if (rejected401) notes.push("（当前是测试密文，401 属预期）");
+  else if (/调用失败/.test(last)) problems.push("调用 DeepSeek 出现非预期错误");
+  else if (last.trim()) notes.push("真实 Key 调用成功，拿到模型回复 ✓");
+  else problems.push("调用 DeepSeek 既没报错也没返回内容");
 } catch (e) {
   problems.push("调用 DeepSeek 抛异常: " + e.message);
 }
